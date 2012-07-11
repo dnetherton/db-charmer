@@ -66,7 +66,14 @@ module DbCharmer
         def first_level_on_slave
           first_level = db_charmer_top_level_connection? && on_master.connection.open_transactions.zero?
           if first_level && db_charmer_force_slave_reads? && db_charmer_slaves.any?
-            on_slave { yield }
+            begin
+              on_slave { yield }
+            rescue => e
+              logger.warn("failed to connect to slave database.")
+              logger.warn(e.message + "\n" + e.backtrace.join("\n"))
+              logger.warn("retrying request on master database.")
+              yield
+            end
           else
             yield
           end
